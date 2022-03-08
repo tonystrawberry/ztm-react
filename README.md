@@ -75,3 +75,10 @@ useEffect(() => {
   // data initialization
 }, []); // only runs this callback function if the dependency is changed
 ```
+
+## DOM vs Virtual DOM 
+In the real DOM, it is expensive to make changes(remove nodes, update nodes...).
+
+Virtual DOM: Javascript representation of the real DOM.
+On changes, it creates a copy of the Virtual DOM, and determines the children affected by the changes.
+After the new Virtual DOM has been computed, the changes are reflected into the real DOM. 
