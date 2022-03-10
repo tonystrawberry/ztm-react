@@ -93,4 +93,91 @@ npm audit fix
 ```
 
 ### Prop drilling
-This is bad!
+This is bad! Because the intermediate components might not need the passed props.
+Code might me too cluttered, making it hard to maintain and debug.
+
+## Redux
+One way to avoid props drilling is to use Redux. Redux is a library that allows us to manage a global state decoupled from the components.
+No need to store the state in the class components anymore and all data will be stored and modified in one state unique to the application.
+In Redux, we use:
+- actions for triggering events that would potentially change the state
+- reducers that handle the actions and contains logic on how the state should be changed
+
+The redux state is passed to components via props. We use connect() for making a component use Redux.
+```
+import { connect } from 'react-redux';
+import { createStructuredSelector } from 'reselect';
+import { setCurrentUser } from './redux/user/user.actions';
+
+class App extends React.Component {
+
+  componentDidMount() {
+    const { setCurrentUser } = this.props;
+  }
+}
+
+const mapStateToProps = createStructuredSelector({
+  currentUser: selectCurrentUser
+});
+
+const mapDispatchToProps = dispatch => ({
+  setCurrentUser: user => dispatch(setCurrentUser(user))
+});
+
+export default connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(App);
+```
+
+In addition, reselect is a practical library for creating memoized "selector" functions, to avoid useless recomputation and rerendering, hence improving performance.
+It acts like a computed property in Vue.JS that would be recomputed only when one of its argument changes.
+
+```
+import { createSelector } from 'reselect';
+
+const selectUser = state => state.user;
+
+export const selectCurrentUser = createSelector(
+  [selectUser],
+  user => user.currentUser
+);
+```
+
+```
+import { createSelector } from 'reselect';
+
+const selectCart = state => state.cart;
+
+export const selectCartItems = createSelector(
+  [selectCart],
+  cart => cart.cartItems
+);
+
+export const selectCartHidden = createSelector(
+  [selectCart],
+  cart => cart.hidden
+);
+
+export const selectCartItemsCount = createSelector(
+  [selectCartItems],
+  cartItems =>
+    cartItems.reduce(
+      (accumalatedQuantity, cartItem) =>
+        accumalatedQuantity + cartItem.quantity,
+      0
+    )
+);
+
+export const selectCartTotal = createSelector(
+  [selectCartItems],
+  cartItems =>
+    cartItems.reduce(
+      (accumalatedQuantity, cartItem) =>
+        accumalatedQuantity + cartItem.quantity * cartItem.price,
+      0
+    )
+);
+```
+
+https://redux.js.org/usage/deriving-data-selectors
