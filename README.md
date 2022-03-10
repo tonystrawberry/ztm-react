@@ -181,3 +181,47 @@ export const selectCartTotal = createSelector(
 ```
 
 https://redux.js.org/usage/deriving-data-selectors
+
+
+### Persist redux state in local storage
+Using redux-persist, it can be done very easily.
+```
+// store.js
+import { persistStore } from 'redux-persist';
+
+const store = createStore(rootReducer, applyMiddleware( ... ))
+const persistor = persistStore(store);
+
+export default { store, persisor };
+
+// root-reducer.js
+import { persistReducer } from 'redux-persist';
+import storage from 'redux-persist/lib/storage';
+
+const persistConfig = {
+  key: 'root',
+  storage,
+  whitelist: ['cart'] # only card will be persisted
+}
+
+const rootReducer = combineReducers({
+  user: userReducer,
+  cart: cartReducer
+});
+
+export default persistReducer(persistConfig, rootReducer);
+
+// index.js
+import { PersistGate } from 'redux-persist/integration/react';
+
+import { store, persistor } from './redux/store';
+
+...
+<Provider store={store}>
+  <BrowserRouter>
+    <PersistGate persistor={persistor}>
+      <App />
+    </PersistGate>
+  </BrowserRouter>
+</Provider>
+```
