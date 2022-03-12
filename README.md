@@ -225,3 +225,225 @@ import { store, persistor } from './redux/store';
   </BrowserRouter>
 </Provider>
 ```
+
+## Higher Order Component Pattern
+
+A Higher Order Component takes a component as an argument and returns back an enhanced component with additional functionality.
+
+```
+// it takes a component
+const WithSpinner = WrapperComponent => {
+  const Spinner = ({isLoading, ...otherProps}) => {
+    return isLoading ? (
+      // render spinner 
+      <Spinner />
+    ) : (
+      // render component
+      <WrappedComponent />
+    );
+  };
+
+  return Spinner;
+}
+
+// shop.js
+const CollectionsOverviewWithSpinner = WithSpinner(CollectionOverview);
+const CollectionsPageWithSpinner = WithSpinner(CollectionPage);
+
+class Shop extends React.Component {
+  constructor(props){
+    super(props);
+
+    this.state = {
+      loading: false
+    }
+  }
+
+  render(){
+    return (
+      <CollectionsOverviewWithSpinner isLoading={this.state.loading}>
+    )
+  }
+}
+
+```
+
+## Asynchronous Redux
+
+### Observable
+
+*Observer*
+```
+next: (nextValue) => { // do something with value}
+error: (error) => { // do something with error }
+complete: () => { // do something when finished }
+```
+
+```
+const collectionRef = firestore.collection('collections');
+// livestream data fetch
+collectionRef.onSnapshot( snapshot = > {
+  ....
+});
+
+// one time api fetch
+collectionRef.get().then( snapshot => {
+  ....
+});
+```
+
+### Why move the data fetch from the component to redux?
+
+- Other components elsewhere in the website may need to use the same logic.
+- Copy/pasting the code would be no good -> better to make the data fetch reusable
+- Moving the logic up to the App.js would resolve the problem but would make the initial loading quite heavy, plus we may not need that data in the root of the app (the fetched data may be only needed in certain pages)
+
+### redux-thunk
+
+It's a middleware that allows us to fire functions.
+
+```
+// store.js
+import thunk from 'redux-thunk';
+
+const middlewares = [thunk];
+
+const store = createStore(rootReducer, applyMiddleware(...middlewares));
+
+// shop.types.js
+const ShopActionTypes = {
+  FETCH_COLLECTIONS_START: 'FETCH_COLLECTIONS_START',
+  FETCH_COLLECTIONS_SUCCESS: 'FETCH_COLLECTIONS_SUCCESS',
+  FETCH_COLLECTIONS_FAILURE: 'FETCH_COLLECTIONS_FAILURE'
+};
+
+
+// shop.reducer.js
+const INITIAL_STATE = {
+  collections: null,
+  isFetching: false,
+  errorMessage: undefined
+};
+
+const shopReducer= (state = INITIAL_STATE, action) => {
+  switch(action.type) {
+    case ShopActionTypes.FETCH_COLLECTIONS_START:
+      return {
+        ...state,
+        isFetching: true
+      }
+    case ShopActionTypes.FETCH_COLLECTIONS_SUCCESS:
+      return {
+        ...state,
+        isFetching: false,
+        collections: action.payload
+      }
+    case ShopActionTypes.FETCH_COLLECTIONS_FAILURE:
+      return {
+        ...state,
+        isFetching: false,
+        errorMessage: action.payload
+      }
+  }
+}
+
+// shop.actions.js
+export const fetchCollectionsStart = () => ({
+  type: ShopActionTypes.FETCH_COLLECTIONS_START
+});
+
+export const fetchCollectionsSuccess = collectionsMap => ({
+  type: ShopActionTypes.FETCH_COLLECTIONS_SUCCESS,
+  payload: collectionsMap
+});
+
+
+export const fetchCollectionsFailure = errorMessage => ({
+  type: ShopActionTypes.FETCH_COLLECTIONS_FAILURE,
+  payload: errorMessage
+});
+
+
+export const fetchCollectionsStartAsync = () => { // it returns a function. when you pass
+  return dispatch => {
+    const collectionRef = firestore.collection('collections);
+    dispatch(fetchCollectionsStart());
+
+    collectionRef.get().then(snapshot => {
+      const collectionsMap = convertCollectionsSnapshotToMap(snapshot);
+      dispatch(fetchCollectionsSuccess(collectionsMap));
+    }).catch(error => {
+      dispatch(fetchCollectionsFailure(error.message));
+    })
+  }
+};
+
+// shop.selectors.js
+export const selectIsCollectionFetching = createSelector(
+  [selectShop],
+  shop => shop.isFetching
+)
+
+
+// shop.components.jsx
+import { fetchCollectionsStartAsync } from 'shop.actions.js';
+import { selectIsCollectionFetching } from 'shop.selectors.js';
+
+class ShopPage extends React.component {
+
+  componentDidMount() {
+    this.props.fetchCollectionsStartAsync();
+  }
+
+  render() {
+    const { match, isCollectionFetching } = this.props;
+
+    return(
+      ...
+    )
+  }
+
+}
+
+const mapStateToProps = createStructuredSelector({
+  isCollectionFetching: selectIsCollectionFetching
+});
+
+const mapDispatchToProps = dispatch => ({
+  fetchCollectionsStartAsync: () => dispatch(fetchCollectionsStartAsync())
+});
+
+export default connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(ShopPage)
+
+```
+
+If redux-thunk middleware is enabled, anytime you attempt to dispatch a function instead of an object, the middleware will call that function with dispatch method itself as the first argument.
+
+## Container pattern
+```
+// collections-overview.container.jsx
+import { connect } from 'react-redux';
+import { createStructuredSelector } from 'reselect';
+import { compose } from 'redux'; // composing functions together, making it easier to read
+// without compose, it would be like
+// const CollectionsOverviewContainer = connect(mapStateToProps)(WithSpinner(CollectionsOverview));
+
+import { selectIsCollectionFetching } from '../../redux/shop/shop.selectors';
+import WithSpinner from '../with-spinner/with-spinner.component';
+import CollectionsOverview from './collections-overview.component';
+
+const mapStateToProps = createStructuredSelector({
+  isLoading: selectIsCollectionFetching
+});
+
+const CollectionsOverviewContainer = compose(
+  connect(mapStateToProps),
+  WithSpinner
+)(CollectionsOverview);
+
+export default CollectionsOverviewContainer;
+
+```
