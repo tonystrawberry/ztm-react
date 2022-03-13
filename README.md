@@ -423,6 +423,10 @@ export default connect(
 If redux-thunk middleware is enabled, anytime you attempt to dispatch a function instead of an object, the middleware will call that function with dispatch method itself as the first argument.
 
 ## Container pattern
+ShopPage (parent) should not be managing the loading state of each of its children (CollectionsOverview being one of them).
+So in order to making ShopPage as dumb (isolated) as possible, we create a container that would encapsulate the loading logic by getting the loading state and return a CollectionsOverview with the loading props like below. Again, we are using HOC pattern.
+
+Container does not render anything. It just passes props.
 ```
 // collections-overview.container.jsx
 import { connect } from 'react-redux';
@@ -447,3 +451,34 @@ const CollectionsOverviewContainer = compose(
 export default CollectionsOverviewContainer;
 
 ```
+
+## Redux Saga
+redux-saga is another middleware library for handling asynchronous a tions in a easy manner.
+It does the same job as redux-thunk but allows us to take advantage of generator functions (ES6 new feature).
+
+### Generators 
+Generators are functions that can be paused and resumed, instead of executing all the statements of the function in one pass.
+When you invoke a generator function, it will return an iterator object. With each call of the iterator’s next() method, the generator’s body will be executed until the next yield statement and then pause:
+
+
+```
+function* myGenerator() {
+  let first = yield 'first value';
+  let second = yield 'second value';
+  return 'third value';
+}
+
+const it = myGenerator();
+it.next(); // returns {value: 'first value', done: false}
+it.next(); // returns {value: 'second value', done: false}
+it.next(); // returns {value: 'third value', done: true}
+
+```
+
+### Redux Saga flow
+Saga will intercept any action that are registered via `take`, `takeLatest`, `takeEvery`... and execute the provided generator function.
+Inside the generator function, complex/asynchronous logic is executed and then it can dispatch actions again. If an action is not registered via Saga, it will go through the reducers directly. 
+
+![Redux Saga Flow](docs/redux-saga-1.png "Redux Saga Flow - 1")
+![Redux Saga Flow](docs/redux-saga-2.png "Redux Saga Flow - 2")
+
